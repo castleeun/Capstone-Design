@@ -1,11 +1,17 @@
+import sys
+import os
+
+# 현재 파일의 디렉토리를 Python 경로에 추가
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from model.video_manager import VideoManager
 from model.posture import PostureMonitor
 from flask import Flask, render_template, Response, request, jsonify, send_from_directory
 import cv2
-import os
 import datetime
 
 app = Flask(__name__)
+app.config['VIDEO_FOLDER'] = 'static/videos' 
 posture_monitor = PostureMonitor()# PostureMonitor 인스턴스 생성
 video_manager = VideoManager()  # VideoManager 초기화
 
@@ -104,4 +110,4 @@ def stop_recording():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5001)  # 5000 대신 5001
