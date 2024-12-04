@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>모니터링 - Study Posture</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/monitoring.css') }}">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Study Posture 로고" class="logo-img">
+                <a href="/">꺼북e</a>
+            </div>
+            <div class="nav-links">
+                <a href="/mypage">마이페이지</a>
+                <button id="logoutBtn">로그아웃</button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="monitoring-container">
+        
+        <!-- 좌측: 비디오 및 컨트롤 패널 -->
+        <section class="video-section">
+            <div class="video-container">
+                <img src="{{ url_for('video_feed') }}" id="videoElement">
+                <div class="video-controls">
+                    <button id="recordBtn">녹화</button>
+                    <button id="stopBtn">중지</button>
+                </div>
+            </div>
+            <div class="timer-container">
+                <div class="time-section"> 
+                    <div class="mode-toggle">
+                        <button class="toggle-btn active" data-mode="stopwatch">스톱워치</button>
+                        <button class="toggle-btn" data-mode="timer">타이머</button>
+                    </div>
+                    <div class="time-display">
+                        <span id="timeDisplay">00:00:00</span>
+                    </div>
+                    <div class="time-controls">
+                        <!-- 타이머 모드 컨트롤 -->
+                        <div class="timer-controls" style="display: none;">
+                            <div class="time-unit">
+                                <button class="time-btn up" data-unit="hours">+</button>
+                                <input type="text" id="hoursInput" value="00" readonly>
+                                <button class="time-btn down" data-unit="hours">-</button>
+                            </div>
+                            <span>:</span>
+                            <div class="time-unit">
+                                <button class="time-btn up" data-unit="minutes">+</button>
+                                <input type="text" id="minutesInput" value="00" readonly>
+                                <button class="time-btn down" data-unit="minutes">-</button>
+                            </div>
+                            <span>:</span>
+                            <div class="time-unit">
+                                <button class="time-btn up" data-unit="seconds">+</button>
+                                <input type="text" id="secondsInput" value="00" readonly>
+                                <button class="time-btn down" data-unit="seconds">-</button>
+                            </div>
+                        </div>
+                        <div class="common-controls">
+                            <button id="startBtn">시작</button>
+                            <button id="resetBtn">초기화</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: Settings and Function Panel -->
+        <section class="control-section">
+            <!-- Notification Settings -->
+            <div class="settings-panel">
+                <h3>알림 설정</h3>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="soundAlert" checked>
+                        소리 알림
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="popupAlert" checked>
+                        팝업 알림       
+                    </label>
+                </div> 
+            </div>
+
+            <div class="control-section">
+                <!-- 모드 전환 버튼 -->
+                <div class="mode-toggle">
+                    <button class="toggle-btn active" data-mode="memo">메모</button>
+                    <button class="toggle-btn" data-mode="todo">To Do List</button>
+                </div>
+            
+                <!-- 메모 패널 -->
+                <div class="panel memo-panel active" id="memoPanel">
+                    <textarea id="studyMemo" placeholder="메모를 작성하세요"></textarea>
+                    <button id="saveMemo">저장</button>
+                    
+                    <!-- 저장된 메모 목록 -->
+                    <div class="saved-memos">
+                        <h4>저장된 메모</h4>
+                        <ul id="memoList"></ul>
+                    </div>
+                </div>
+            
+                <!-- 할 일 목록 패널 -->
+                <div class="panel todo-panel" id="todoPanel">
+                    <div class="todo-input">
+                        <input type="text" id="todoInput" placeholder="할 일을 입력하세요">
+                        <button id="addTodo">추가</button>
+                    </div>
+                    <ul id="todoList"></ul>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 오디오 요소 추가 -->
+    <audio id="timerSound" src="{{ url_for('static', filename='sounds/100462__zozu__tai_cay_saati_alarm_uber_reverb.wav') }}" preload="auto"></audio>
+
+    <!-- 자세 경고 모달 -->
+    <div id="postureAlert" class="alert-modal">
+        <div class="alert-content">
+            <h3>자세 교정 필요!</h3>
+            <p>거북목 자세가 감지되었습니다.</p>
+            <button id="acknowledgeAlert">확인</button>
+        </div>
+    </div>
+    
+<script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const recordBtn = document.getElementById('recordBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            // 녹화 시작 버튼 클릭 이벤트
+            recordBtn.addEventListener('click', function () {
+                fetch('/start_recording', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'recording started') {
+                        alert('녹화가 시작되었습니다!');
+                        recordBtn.disabled = true;  // 녹화 시작 버튼 비활성화
+                        stopBtn.disabled = false;  // 중지 버튼 활성화
+                    }
+                })
+                .catch(error => {
+                    console.error('녹화 시작 오류:', error);
+                    alert('녹화 시작에 실패했습니다.');
+                });
+            });
+
+            // 녹화 중지 버튼 클릭 이벤트
+            stopBtn.addEventListener('click', function () {
+                fetch('/stop_recording', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'recording stopped') {
+                        alert('녹화가 중지되었습니다!');
+                        recordBtn.disabled = false;  // 녹화 시작 버튼 다시 활성화
+                        stopBtn.disabled = true;  // 중지 버튼 비활성화
+                    }
+                })
+                .catch(error => {
+                    console.error('녹화 중지 오류:', error);
+                    alert('녹화 중지에 실패했습니다.');
+                });
+            });
+        });
+    </script>
+</body>
+
+{% include 'components/footer.html' %}
+
+</html>
