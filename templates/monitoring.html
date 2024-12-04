@@ -27,10 +27,10 @@
         <!-- 좌측: 비디오 및 컨트롤 패널 -->
         <section class="video-section">
             <div class="video-container">
-                <img src="{{ url_for('video_feed') }}" id="videoElement">
+                <video id="videoElement" autoplay playsinline></video>
                 <div class="video-controls">
                     <button id="recordBtn">녹화</button>
-                    <button id="stopBtn">중지</button>
+                    <button id="stopBtn" disabled>중지</button>
                 </div>
             </div>
             <div class="timer-container">

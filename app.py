@@ -1,11 +1,14 @@
-from flask import Flask, render_template, Response, request, jsonify
+from model.video_manager import VideoManager
 from model.posture import PostureMonitor
+from flask import Flask, render_template, Response, request, jsonify, send_from_directory
 import cv2
 import os
 import datetime
 
 app = Flask(__name__)
-posture_monitor = PostureMonitor()
+posture_monitor = PostureMonitor()# PostureMonitor 인스턴스 생성
+video_manager = VideoManager()  # VideoManager 초기화
+
 
 # VideoWriter 초기화 변수
 is_recording = False
@@ -25,25 +28,44 @@ def monitoring():
 def pypage():
     return render_template('mypage.html')
 
+@app.route('/api/videos', methods=['GET'])
+def get_videos():
+    page = request.args.get('page', 1, type=int)
+    user_id = '현재_로그인_사용자_ID'  # 실제 구현시 세션에서 가져옴
+    videos = video_manager.get_user_videos(user_id, page)
+    return jsonify(videos)
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    user_id = '현재_로그인_사용자_ID'  # 실제 구현시 세션에서 가져옴
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    stats = video_manager.get_user_stats(user_id, start_date, end_date)
+    return jsonify(stats)
+
+@app.route('/api/videos/<video_id>', methods=['GET'])
+def get_video(video_id):
+    return send_from_directory(app.config['VIDEO_FOLDER'], f'{video_id}.webm')
+
 def gen_frames():
     global is_recording, video_writer
-
+    
     while True:
         frame = posture_monitor.process_frame()
         if frame is None:
             break
-
+        
         # 비디오 저장 중이면 프레임을 기록
         if is_recording and video_writer:
             video_writer.write(frame)
-
+            
         ret, buffer = cv2.imencode('.jpg', frame)
         if not ret:
             continue
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
+        
 @app.route('/video_feed')
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -80,5 +102,6 @@ def stop_recording():
     else:
         return jsonify({"status": "not recording"})
 
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5001)

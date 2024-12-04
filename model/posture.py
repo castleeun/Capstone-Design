@@ -14,6 +14,10 @@ class PostureMonitor:
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
+        # 웹캠 초기화
+        self.cap = cv2.VideoCapture(0)  # 여기서 0은 기본 웹캠
+        if not self.cap.isOpened():
+            print("카메라를 열 수 없습니다!")
         
         # 비디오 캡처 설정
         self.cap = cv2.VideoCapture(0)

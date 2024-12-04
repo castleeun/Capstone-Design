@@ -9,40 +9,77 @@ document.addEventListener('DOMContentLoaded', function() {
     // 비디오 녹화 관련 변수
     let mediaRecorder;
     let recordedChunks = [];
+    let recordingDuration = 0;
+    let postureRecords = [];
+    let badPostureCount = 0;
+    let recordingStartTime;
 
-    // 비디오 스트림 가져오기
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-            const videoElement = document.getElementById('videoElement');
-            videoElement.srcObject = stream;
+     // 비디오 스트림 가져오기
+     navigator.mediaDevices.getUserMedia({ video: true })
+     .then(stream => {
+         const videoElement = document.getElementById('videoElement');
+         videoElement.srcObject = stream;
 
-            // MediaRecorder 생성
-            mediaRecorder = new MediaRecorder(stream);
+         // MediaRecorder 초기화
+         mediaRecorder = new MediaRecorder(stream);
 
-            mediaRecorder.ondataavailable = event => {
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                }
-            };
+         mediaRecorder.ondataavailable = event => {
+             if (event.data.size > 0) {
+                 recordedChunks.push(event.data);
+             }
+         };
 
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
+         mediaRecorder.onstop = async () => {
+             const blob = new Blob(recordedChunks, { type: 'video/webm' });
+             const formData = new FormData();
+             
+             // 영상 데이터 추가
+             formData.append('video', blob);
+             
+             // 자세 데이터 추가
+             const postureData = {
+                 duration: recordingDuration,
+                 records: postureRecords,
+                 bad_posture_count: badPostureCount,
+                 start_time: recordingStartTime,
+                 end_time: new Date().toISOString()
+             };
+             
+             formData.append('posture_data', JSON.stringify(postureData));
 
-                // 자동 다운로드
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = 'recorded-video.webm';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            };
+             try {
+                 // 영상 저장 요청
+                 const response = await fetch('/api/videos', {
+                     method: 'POST',
+                     body: formData
+                 });
 
-            // 녹화 시작 버튼
+                 if (response.ok) {
+                     const result = await response.json();
+                     alert('녹화가 성공적으로 저장되었습니다.');
+                     
+                     // 녹화 데이터 초기화
+                     recordedChunks = [];
+                     postureRecords = [];
+                     badPostureCount = 0;
+                     recordingDuration = 0;
+                 } else {
+                     throw new Error('영상 저장 실패');
+                 }
+             } catch (error) {
+                 console.error('녹화 저장 오류:', error);
+                 alert('녹화 저장에 실패했습니다.');
+             }
+         };
+
+             // 녹화 시작 버튼
             document.getElementById('recordBtn').addEventListener('click', () => {
-                recordedChunks = []; // 이전 녹화 데이터 초기화
+                recordedChunks = [];
+                postureRecords = [];
+                badPostureCount = 0;
+                recordingDuration = 0;
+                recordingStartTime = new Date().toISOString();
+                
                 mediaRecorder.start();
                 document.getElementById('recordBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = false;
@@ -58,6 +95,30 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error("카메라 접근 오류:", error);
         });
+
+        // 자세 데이터 수집 함수
+    function updatePostureData(angle, distance, isBadPosture) {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            postureRecords.push({
+                timestamp: new Date().toISOString(),
+                neck_angle: angle,
+                face_distance: distance,
+                is_bad_posture: isBadPosture
+            });
+            
+            if (isBadPosture) {
+                badPostureCount++;
+            }
+            
+            recordingDuration = Math.floor((new Date() - new Date(recordingStartTime)) / 1000);
+        }
+    }
+
+    // PostureMonitor에서 자세 데이터 업데이트 시 호출
+    function onPostureUpdate(angle, distance, isBadPosture) {
+        updatePostureData(angle, distance, isBadPosture);
+     }
+     
 
     // 시작/일시정지 버튼
     document.getElementById('startBtn').addEventListener('click', function() {
