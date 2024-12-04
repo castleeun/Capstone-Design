@@ -97,4 +97,3 @@ class VideoManager:
             stats['avg_daily_time'] = stats['total_study_time'] / len(stats['daily_stats'])
 
         return stats
-
